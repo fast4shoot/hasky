@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings, RankNTypes #-}
-module AST (Val(..), ParsedExpr(..), Expr(..)) where
+module AST (Val(..), ParsedExpr(..), ParsedImport(..), ParsedModule(..), Expr(..)) where
 
 import qualified Data.Text as T
 
@@ -17,10 +17,19 @@ instance Show (Val a) where
 
 data ParsedExpr =
     PEInt Integer
-    | PEName T.Text
+    | PEName { peModule :: [T.Text], peIdentifier :: T.Text }
     | PEApply ParsedExpr ParsedExpr
     | PEFunc { peFuncParamName :: T.Text, peFuncBody :: ParsedExpr }
     | PEDeclare { peDeclareDecls :: [(T.Text, ParsedExpr)], peDeclareBody :: ParsedExpr }
+    deriving Show
+
+data ParsedImport =
+    ParsedImportAliased { piModule :: [T.Text], piAlias :: T.Text }
+    | ParsedImportAll { piModule :: [T.Text] }
+    deriving Show
+
+data ParsedModule =
+    ParsedModule { pmImports :: [ParsedImport], pmDecls :: [(T.Text, ParsedExpr)] }
     deriving Show
 
 data Expr = 

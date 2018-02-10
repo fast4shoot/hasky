@@ -1,17 +1,18 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Parse (pProgram) where
+module Parse (pModule) where
 
 import Control.Applicative
-import Control.Monad (guard)
+import Control.Monad (guard, when)
 import Data.Attoparsec.Text as P
-import Data.Char (isAlpha, isAlphaNum, isPunctuation, isSymbol, isDigit, isSpace)
+import Data.Char (isAlpha, isAlphaNum, isPunctuation, isSymbol, isDigit, isSpace, isUpper)
+import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 
-import AST (ParsedExpr(..))
+import AST (ParsedExpr(..), ParsedImport(..), ParsedModule(..))
 
 data WordType =
-    WIdentifier { getIdentifier :: !T.Text }
-    | WKeyword { getKeyword :: !Keyword }
+    WIdentifier { wiIdentifier :: !T.Text }
+    | WKeyword { wkKeyword :: !Keyword }
     deriving (Show, Eq)
 
 data Keyword = 
@@ -20,6 +21,7 @@ data Keyword =
     | KWSeparator
     | KWFn
     | KWIn
+    | KWImport
     deriving (Show, Eq)
 
 classifyWord w = case w of
@@ -28,6 +30,7 @@ classifyWord w = case w of
     "=" -> WKeyword KWEquals
     "fn" -> WKeyword KWFn
     "in" -> WKeyword KWIn
+    "import" -> WKeyword KWImport
     w -> WIdentifier w
 
 guarded pred parser = do
@@ -35,10 +38,17 @@ guarded pred parser = do
     guard $ pred result
     pure result
 
-skipWhite = skipWhile isHorizontalSpace
-skipEmptySpace = many (tComment *> skipWhite) *> pure ()
+skipHorizontalSpace = skipWhile isHorizontalSpace <?> "skipHorizontalSpace"
+skipWhite = skipHorizontalSpace *> optional (char '\\' *> skipSpace *> skipEmptySpace) *> pure ()
+skipEmptySpace = many tComment *> pure ()
 
-tComment = optional (char '`' *> skipWhile (not . isEndOfLine)) *> endOfLine *> skipWhite
+tModulePart = guarded (not . T.null) scanner
+    where scanner = scan isUpper $ \p c -> if p c then Just isAlpha else Nothing
+tModulePartSeparator = char '.' *> skipWhite
+tModulePrefix = sepBy1' (tModulePart <* skipWhite) tModulePartSeparator
+
+tComment = do
+    optional (char '`' *> skipWhile (not . isEndOfLine)) *> endOfLine *> skipHorizontalSpace
 
 tAlphanumWord = do
     w <- scan isAlpha $ \p c -> if p c then Just isAlphaNum else Nothing
@@ -56,11 +66,16 @@ tBraceClose = char '}' <* skipWhite
 
 tWord = (tAlphanumWord <|> tSymbolWord) <* skipWhite <?> "word"
 
-tIdentifier = getIdentifier <$> guarded (isId) tWord <?> "identifier"
+tIdentifier = wiIdentifier <$> guarded (isId) tWord <?> "identifier"
     where isId (WIdentifier w) = True
           isId _ = False
 
-tKeyword kw = getKeyword <$> guarded (isKW) tWord <?> "keyword"
+tPrefixedIdentifier = (do
+    prefix <- fromMaybe [] <$> optional (tModulePrefix <* tModulePartSeparator)
+    id <- tIdentifier
+    pure (prefix, id)) <?> "prefixed identifier"
+
+tKeyword kw = wkKeyword <$> guarded (isKW) tWord <?> "keyword"
     where isKW (WKeyword kw') = kw == kw'
           isKW _ = False
 
@@ -83,7 +98,7 @@ xformParam p = p
 pExpr = xformCalls <$> many1' pSubExpr <?> "expression"
 pSubExpr =
     PEInt <$> tInt
-    <|> PEName <$> tIdentifier
+    <|> uncurry PEName <$> tPrefixedIdentifier
     <|> pFunction
     <|> (tParenthesisOpen *> pExpr <* tParenthesisClose)
     <|> pDeclare
@@ -112,8 +127,18 @@ pDeclareBody = do
         tKeyword KWEquals
         body <- pExpr
         pure $ (name, body)
-pProgram = (do
+pImport = do
+    tKeyword KWImport
+    moduleName <- tModulePrefix
+    alias <- optional tModulePart
+    case alias of
+        Just alias -> pure $ ParsedImportAliased moduleName alias
+        Nothing -> pure $ ParsedImportAll moduleName
+pImports = pImport `sepBy'` tSeparator <?> "imports"
+pModule = (do
     skipEmptySpace
+    imports <- pImports
+    when (not $ null imports) (tSeparator <|> endOfInput)
     body <- pDeclareBody
     endOfInput
-    pure $ PEDeclare body $ PEName "main") <?> "program"
+    pure $ ParsedModule imports body) <?> "module"
