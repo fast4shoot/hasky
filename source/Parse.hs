@@ -8,7 +8,7 @@ import Data.Char (isAlpha, isAlphaNum, isPunctuation, isSymbol, isDigit, isSpace
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 
-import AST (ParsedExpr(..), ParsedImport(..), ParsedModule(..))
+import AST (Val(..), ParsedExpr(..), ParsedImport(..), ParsedModule(..))
 
 data WordType =
     WIdentifier { wiIdentifier :: !T.Text }
@@ -42,10 +42,10 @@ skipHorizontalSpace = skipWhile isHorizontalSpace <?> "skipHorizontalSpace"
 skipWhite = skipHorizontalSpace *> optional (char '\\' *> skipSpace *> skipEmptySpace) *> pure ()
 skipEmptySpace = many tComment *> pure ()
 
-tModulePart = guarded (not . T.null) scanner
-    where scanner = scan isUpper $ \p c -> if p c then Just isAlpha else Nothing
+tModulePart = guarded (not . T.null) scanner <* skipWhite
+    where scanner = scan isUpper $ \p c -> if p c then Just isAlphaNum else Nothing
 tModulePartSeparator = char '.' *> skipWhite
-tModulePrefix = sepBy1' (tModulePart <* skipWhite) tModulePartSeparator
+tModulePrefix = sepBy1' tModulePart tModulePartSeparator
 
 tComment = do
     optional (char '`' *> skipWhile (not . isEndOfLine)) *> endOfLine *> skipHorizontalSpace
@@ -97,7 +97,7 @@ xformParam p = p
 
 pExpr = xformCalls <$> many1' pSubExpr <?> "expression"
 pSubExpr =
-    PEInt <$> tInt
+    PEVal . VInt <$> tInt
     <|> uncurry PEName <$> tPrefixedIdentifier
     <|> pFunction
     <|> (tParenthesisOpen *> pExpr <* tParenthesisClose)

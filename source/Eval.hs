@@ -10,11 +10,11 @@ import System.Random (randomIO)
 import AST
 import Builtins (builtins)
 
-eval :: [Val a] -> Expr -> Either T.Text (Val a)
+eval :: [Val a] -> Expr a -> Either T.Text (Val a)
 eval s = eval' (fmap pure s)
 
-eval' :: [Either T.Text (Val a)] -> Expr -> Either T.Text (Val a)
-eval' _ (EInt x) = pure $ VInt x
+eval' :: [Either T.Text (Val a)] -> Expr a -> Either T.Text (Val a)
+eval' _ (EVal x) = pure $ x
 eval' s (EName x) = s !! x
 eval' s (EApply f x) = do
     f' <- eval' s f
@@ -43,8 +43,8 @@ intro' s tag (VFunc name s' body) = do
         Right val -> intro' s (succ tag) val
 intro' s tag x = TIO.putStrLn $ s <> T.pack (show x)
 
-introEval :: [Either T.Text (Val Intro)] -> Expr -> Either T.Text (Val Intro)
-introEval _ (EInt x) = pure $ VInt x
+introEval :: [Either T.Text (Val Intro)] -> Expr Intro -> Either T.Text (Val Intro)
+introEval _ (EVal x) = pure x
 introEval s (EName x) = s !! x
 introEval s (EApply f x) = do
     f' <- introEval s f

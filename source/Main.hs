@@ -9,7 +9,7 @@ import System.IO (stdin)
 
 import AST (vGetBuiltinName)
 import Load (loadProgram)
---import Simplify (simplify)
+import Simplify (simplify)
 import Eval (eval, intro)
 import Builtins (builtins)
 
@@ -26,7 +26,7 @@ main = do
 -}
 
 main = do
-    prog <- loadProgram stdin
+    prog <- loadProgram builtins stdin
     case prog of
         Left e -> print e
-        Right modules -> print $ keys modules
+        Right modules -> print $ simplify modules

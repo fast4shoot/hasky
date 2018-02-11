@@ -9,6 +9,7 @@ import qualified Data.Text.IO as TIO
 import System.IO (Handle)
 
 import AST (ParsedImport(..), ParsedModule(..))
+import Builtins (builtins)
 import Parse (pModule)
 
 data LoadError =
@@ -18,14 +19,14 @@ data LoadError =
 xformParse moduleName (Left e) = Left $ LoadError moduleName $ T.pack e
 xformParse moduleName (Right module_) = Right module_
 
-loadProgram :: Handle -> IO (Either LoadError (Map.Map [T.Text] ParsedModule))
-loadProgram h = do
+loadProgram :: Map.Map [T.Text] (ParsedModule a) -> Handle -> IO (Either LoadError (Map.Map [T.Text] (ParsedModule a)))
+loadProgram builtins h = do
     let moduleName = ["<main>"]
     content <- TIO.hGetContents h
     let parsed = xformParse moduleName $ parseOnly pModule content
     case parsed of
         Left e -> return $ Left e
-        Right module_ -> loadModules (Map.singleton moduleName module_) $ pmImports module_
+        Right module_ -> loadModules (Map.insert moduleName module_ builtins) $ pmImports module_
 
 loadModules loaded [] = pure $ Right loaded
 loadModules loaded (import_:imports)
