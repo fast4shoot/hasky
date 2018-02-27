@@ -1,6 +1,8 @@
 {-# LANGUAGE OverloadedStrings, LambdaCase #-}
-module Builtins(builtins, builtinPrettyCtx) where
+module Builtins(builtins) where
 
+import Control.Arrow ((&&&))
+import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 
 import AST
@@ -27,27 +29,21 @@ fn2ii name f = VBuiltin name $ \case
 fn2iii name f = fn2ii name $ \a b -> VInt $ f a b
 fn2iib name f = fn2ii name $ \a b -> builtinBool $ f a b
 
-builtins :: [Val a]
-builtins = [
-    builtinTrue,
-    builtinFalse,
-    fn2iii "+" (+),
-    fn2iii "-" (-),
-    fn2iii "*" (*),
-    fn2iii "/" div,
-    fn2iii "%" mod,
-    fn2iib "==" (==),
-    fn2iib "!=" (/=),
-    fn2iib "<" (<),
-    fn2iib ">" (>),
-    fn2iib "<=" (<=),
-    fn2iib ">=" (>=),
-    fn1ii "succ" succ,
-    fn1ii "pred" pred
-    ]
-
-builtinPrettyCtx :: (Int, [(Int, String)])
-builtinPrettyCtx = (2, [
-        (0, "=="),
-        (1, "+")
-    ])
+builtins :: Map.Map [T.Text] (ParsedModule a)
+builtins = Map.singleton ["Builtin"] (ParsedModule [] decls)
+    where
+        decls = fmap (vGetBuiltinName &&& PEVal) [
+            fn2iii "+" (+),
+            fn2iii "-" (-),
+            fn2iii "*" (*),
+            fn2iii "/" div,
+            fn2iii "%" mod,
+            fn2iib "==" (==),
+            fn2iib "!=" (/=),
+            fn2iib "<" (<),
+            fn2iib ">" (>),
+            fn2iib "<=" (<=),
+            fn2iib ">=" (>=),
+            fn1ii "succ" succ,
+            fn1ii "pred" pred
+            ]
