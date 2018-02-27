@@ -6,7 +6,7 @@ import qualified Data.Map.Strict as Map
 import Data.Monoid ((<>))
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
-import System.IO (Handle)
+import qualified System.IO as IO
 
 import AST (ParsedImport(..), ParsedModule(..))
 import Builtins (builtins)
@@ -19,7 +19,7 @@ data LoadError =
 xformParse moduleName (Left e) = Left $ LoadError moduleName $ T.pack e
 xformParse moduleName (Right module_) = Right module_
 
-loadProgram :: Map.Map [T.Text] (ParsedModule a) -> Handle -> IO (Either LoadError (Map.Map [T.Text] (ParsedModule a)))
+loadProgram :: Map.Map [T.Text] (ParsedModule a) -> IO.Handle -> IO (Either LoadError (Map.Map [T.Text] (ParsedModule a)))
 loadProgram builtins h = do
     let moduleName = ["<main>"]
     content <- TIO.hGetContents h
@@ -34,8 +34,8 @@ loadModules loaded (import_:imports)
     | otherwise = do
         let moduleName = piModule import_
             fileName = T.intercalate "/" moduleName <> ".hy"
-        putStr "Loading "
-        print fileName
+        IO.hPutStr IO.stderr "Loading "
+        TIO.hPutStrLn IO.stderr fileName
         content <- TIO.readFile $ T.unpack fileName
         let parsed = xformParse moduleName $ parseOnly pModule content
         case parsed of

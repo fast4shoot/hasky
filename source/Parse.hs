@@ -8,7 +8,7 @@ import Data.Char (isAlpha, isAlphaNum, isPunctuation, isSymbol, isDigit, isSpace
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 
-import AST (Val(..), ParsedExpr(..), ParsedImport(..), ParsedModule(..))
+import AST (Val(..), ParsedExpr(..), ParsedImport(..), ParsedModule(..), ParsedImportNames(..))
 
 data WordType =
     WIdentifier { wiIdentifier :: !T.Text }
@@ -131,9 +131,11 @@ pImport = do
     tKeyword KWImport
     moduleName <- tModulePrefix
     alias <- optional tModulePart
-    case alias of
-        Just alias -> pure $ ParsedImportAliased moduleName alias
-        Nothing -> pure $ ParsedImportAll moduleName
+    names <- optional $ tParenthesisOpen *> many' tIdentifier <* tParenthesisClose
+    pure $ case (alias, names) of
+        (_, Just names) -> ParsedImport moduleName alias $ PINSpecific names
+        (Just _, Nothing) -> ParsedImport moduleName alias $ PINSpecific []
+        (Nothing, Nothing) -> ParsedImport moduleName alias PINAll
 pImports = pImport `sepBy'` tSeparator <?> "imports"
 pModule = (do
     skipEmptySpace

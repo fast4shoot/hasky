@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings, RankNTypes #-}
-module AST (Val(..), ParsedExpr(..), ParsedImport(..), ParsedModule(..), Expr(..)) where
+module AST where
 
 import qualified Data.Text as T
 
@@ -23,9 +23,13 @@ data ParsedExpr a =
     | PEDeclare { peDeclareDecls :: [(T.Text, ParsedExpr a)], peDeclareBody :: ParsedExpr a }
     deriving Show
 
+data ParsedImportNames = 
+    PINAll 
+    | PINSpecific [T.Text]
+    deriving Show
+
 data ParsedImport =
-    ParsedImportAliased { piModule :: [T.Text], piAlias :: T.Text }
-    | ParsedImportAll { piModule :: [T.Text] }
+    ParsedImport { piModule :: [T.Text], piAlias :: Maybe T.Text, piNames :: ParsedImportNames }
     deriving Show
 
 data ParsedModule a =

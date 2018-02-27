@@ -10,8 +10,8 @@ import System.Random (randomIO)
 import AST
 import Builtins (builtins)
 
-eval :: [Val a] -> Expr a -> Either T.Text (Val a)
-eval s = eval' (fmap pure s)
+eval :: Expr a -> Either T.Text (Val a)
+eval = eval' []
 
 eval' :: [Either T.Text (Val a)] -> Expr a -> Either T.Text (Val a)
 eval' _ (EVal x) = pure $ x
@@ -25,7 +25,7 @@ eval' s (EApply f x) = do
 eval' s (EFunc n body) = pure $ VFunc n s body
 eval' s (EDeclare decls body) = eval' s' body
     where 
-        s' = reverse (map (eval' s') decls) ++ s -- reverse? Eh, idgaf
+        s' = map (eval' s') decls ++ s
 
 data Intro = Intro Char [Val Intro] deriving Show
 
@@ -60,4 +60,4 @@ introEval s (EApply f x) = do
 introEval s (EFunc n body) = pure $ VFunc n s body
 introEval s (EDeclare decls body) = introEval s' body
     where 
-        s' = reverse (map (introEval s') decls) ++ s -- reverse? Eh, idgaf
+        s' = map (introEval s') decls ++ s

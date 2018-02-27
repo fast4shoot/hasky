@@ -5,7 +5,7 @@ import Data.List (intercalate)
 import Data.Map.Strict (keys)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
-import System.IO (stdin)
+import System.IO (stdin, stderr)
 
 import AST (vGetBuiltinName)
 import Load (loadProgram)
@@ -29,4 +29,10 @@ main = do
     prog <- loadProgram builtins stdin
     case prog of
         Left e -> print e
-        Right modules -> print $ simplify modules
+        Right modules -> do
+            let simplified = simplify modules
+                evaluated = simplified >>= eval
+            case evaluated of
+                Right val -> intro val
+                Left err -> TIO.hPutStrLn stderr err
+            
