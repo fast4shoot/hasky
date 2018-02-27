@@ -33,8 +33,6 @@ builtins :: Map.Map [T.Text] (ParsedModule a)
 builtins = Map.singleton ["Builtin"] (ParsedModule [] decls)
     where
         decls = fmap (vGetBuiltinName &&& PEVal) [
-            builtinTrue,
-            builtinFalse,
             fn2iii "+" (+),
             fn2iii "-" (-),
             fn2iii "*" (*),
