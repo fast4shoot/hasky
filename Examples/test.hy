@@ -1,9 +1,6 @@
-. = fn g f x: g (f x)
-id = fn x: x
-
-not = fn b: b false true
-and = fn a b: a b false
-or = fn a b: a true b
+import Builtin
+import Std.Bool
+import Std.Misc
 
 foo = and (not true) (or (not false) (id true))
 bar = foo 9001 42
