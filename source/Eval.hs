@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings, LambdaCase #-}
-module Eval (eval, intro) where
+module Eval (eval, intro, showIntro) where
 
 import Data.Foldable (forM_)
 import Data.Monoid ((<>))
@@ -10,54 +10,46 @@ import System.Random (randomIO)
 import AST
 import Builtins (builtins)
 
-eval :: Expr a -> Either T.Text (Val a)
-eval = eval' []
+type VAnyHandler a = a -> Either T.Text (Val a) -> Either T.Text (Val a)
 
-eval' :: [Either T.Text (Val a)] -> Expr a -> Either T.Text (Val a)
-eval' _ (EVal x) = pure $ x
-eval' s (EName x) = s !! x
-eval' s (EApply f x) = do
-    f' <- eval' s f
+eval :: VAnyHandler a -> Expr a -> Either T.Text (Val a)
+eval hAny = eval' hAny []
+
+eval' :: VAnyHandler a -> [Either T.Text (Val a)] -> Expr a -> Either T.Text (Val a)
+eval' _ _ (EVal x) = pure $ x
+eval' _ s (EName x) = s !! x
+eval' hAny s (EApply f x) = do
+    f' <- eval' hAny s f
+    let x' = eval' hAny s x
     case f' of
-        VBuiltin _ f -> f $ eval' s x
-        VFunc _ s' f -> eval' (eval' s x : s') f
-        _ -> Left $ "only functions are callable, not " <> T.pack (show f')
-eval' s (EFunc n body) = pure $ VFunc n s body
-eval' s (EDeclare decls body) = eval' s' body
+        VBuiltin _ f -> f x'
+        VFunc _ s' f -> eval' hAny (x' : s') f
+        VAny any -> hAny any x'
+        VInt x -> Left $ "only functions are callable, not VInt " <> T.pack (show x)
+eval' _ s (EFunc n body) = pure $ VFunc n s body
+eval' hAny s (EDeclare decls body) = eval' hAny s' body
     where 
-        s' = map (eval' s') decls ++ s
+        s' = map (eval' hAny s') decls ++ s
 
-data Intro = Intro Char [Val Intro] deriving Show
+data Intro = Intro Int [Val Intro] deriving Show
 
-intro :: Val Intro -> IO ()
-intro v = intro' "" 'a' v
+intro :: Val Intro -> Val Intro
+intro = intro' 0
 
-intro' s _ (VAny (Intro tag vals)) = do
-    TIO.putStrLn $ T.concat [s, "tag ", T.pack $ show tag]
-    forM_ (reverse vals) $ intro' ("  " <> s) 'a'
-intro' s tag (VFunc name s' body) = do
-    TIO.putStrLn $ T.concat [s, "introspecting fn ", name, " with tag ", T.pack $ show tag]
-    let e = introEval (pure (VAny (Intro tag [])) : s') body
-    case e of
-        Left reason -> TIO.putStrLn $ s <> "...failed: " <> reason
-        Right val -> intro' s (succ tag) val
-intro' s tag x = TIO.putStrLn $ s <> T.pack (show x)
+intro' :: Int -> Val Intro -> Val Intro
+intro' _ (VAny (Intro tag vals)) = VAny $ Intro tag (intro <$> reverse vals)
+intro' tag fn@(VFunc name s body) =
+    case introEval (pure (VAny (Intro tag [])) : s) body of
+        Left err -> fn
+        Right val -> intro' (succ tag) val
+intro' _ x = x
 
-introEval :: [Either T.Text (Val Intro)] -> Expr Intro -> Either T.Text (Val Intro)
-introEval _ (EVal x) = pure x
-introEval s (EName x) = s !! x
-introEval s (EApply f x) = do
-    f' <- introEval s f
-    let arg = introEval s x
-    case f' of
-        VBuiltin _ f -> f arg
-        VFunc _ s' f -> do
-            arg <- introEval s x
-            introEval (pure arg : s') f
-        VAny (Intro tag vals) -> do
-            arg' <- arg
-            pure $ VAny $ Intro tag (arg' : vals)
-introEval s (EFunc n body) = pure $ VFunc n s body
-introEval s (EDeclare decls body) = introEval s' body
-    where 
-        s' = map (introEval s') decls ++ s
+introEval = eval' introHandler
+introHandler (Intro tag vals) arg = do
+    arg' <- arg
+    pure $ VAny $ Intro tag (arg' : vals)
+
+showIntro (VInt x) = T.pack $ show x
+showIntro (VBuiltin name _) = name
+showIntro (VFunc name _ _) = name
+showIntro (VAny (Intro tag vals)) = T.concat ["(", T.intercalate " " $ (T.pack $ show tag) : fmap showIntro vals, ")"]

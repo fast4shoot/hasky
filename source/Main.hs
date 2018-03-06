@@ -7,23 +7,10 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import System.IO (stdin, stderr)
 
-import AST (vGetBuiltinName)
 import Load (loadProgram)
 import Simplify (simplify)
-import Eval (eval, intro)
+import Eval (eval, intro, showIntro)
 import Builtins (builtins)
-
-{-
-main = do
-    prog <- TIO.getContents
-    let parsed = xformParse $ parse pProgram prog
-        simplified = simplify (fmap vGetBuiltinName builtins) <$> parsed
-        evaluated = simplified >>= eval builtins
-    print evaluated
-    case evaluated of
-        Right val -> intro val
-        _ -> return ()
--}
 
 main = do
     prog <- loadProgram builtins stdin
@@ -31,8 +18,8 @@ main = do
         Left e -> print e
         Right modules -> do
             let simplified = simplify modules
-                evaluated = simplified >>= eval
+                evaluated = simplified >>= eval (\_ _ -> error "Unexpected VAny")
             case evaluated of
-                Right val -> intro val
-                Left err -> TIO.hPutStrLn stderr err
+                Right val -> TIO.putStrLn $ showIntro $ intro val
+                Left e -> TIO.hPutStrLn stderr e
             

@@ -33,10 +33,7 @@ simplify' modules moduleName module_ = let
     in sequence <$> fmap (go [] [] . snd) $ pmDecls module_
 
 lookupName :: Map.Map [T.Text] (Int, ParsedModule a) -> [T.Text] -> [ParsedImport] -> [T.Text] -> ParsedExpr a -> Either T.Text Int
-lookupName modules moduleName imports ctx name = let
-    ident = peIdentifier name
-    module_ = peModule name
-
+lookupName modules moduleName imports ctx (PEName module_ ident) = let
     idxInModule (offset, module_) = (+ (offset + length ctx)) <$> elemIndex ident (fst <$> pmDecls module_)
 
     -- if module_ is empty. the import has to either import all names or a name equal to ident
@@ -64,5 +61,5 @@ lookupName modules moduleName imports ctx name = let
 
     in case candidateIds of
         [idx] -> Right idx
-        [] -> Left $ T.concat ["Identifier ", T.pack $ show name, " not found, modules searched: ", T.pack $ show candidateModules, ", ctx: ", T.pack $ show ctx]
-        _ -> Left $ T.concat ["Identifier ", T.pack $ show name, " found multiple times, modules searched: ", T.pack $ show candidateModules, " ctx: ", T.pack $ show ctx]
+        [] -> Left $ T.concat ["Identifier ", T.pack $ show $ module_ ++ pure ident, " not found, modules searched: ", T.pack $ show candidateModules, ", ctx: ", T.pack $ show ctx]
+        _ -> Left $ T.concat ["Identifier ", T.pack $ show $ module_ ++ pure ident, " found multiple times, modules searched: ", T.pack $ show candidateModules, " ctx: ", T.pack $ show ctx]

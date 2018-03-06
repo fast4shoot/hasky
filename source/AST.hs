@@ -9,8 +9,8 @@ data Val a =
     | VBuiltin { vGetBuiltinName :: T.Text, vGetBuiltinBody :: Either T.Text (Val a) -> Either T.Text (Val a) }
     | VFunc T.Text [Either T.Text (Val a)] (Expr a)
 
-instance Show (Val a) where
-    show (VAny _) = "VAny"
+instance Show a => Show (Val a) where
+    show (VAny x) = "VAny (" ++ show x ++ ")"
     show (VInt x) = "VInt " ++ show x
     show (VBuiltin name _) = "VBuiltin " ++ T.unpack name
     show (VFunc name _ _) = "VFunc " ++ T.unpack name
