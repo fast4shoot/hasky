@@ -31,25 +31,27 @@ eval' hAny s (EDeclare decls body) = eval' hAny s' body
     where 
         s' = map (eval' hAny s') decls ++ s
 
-data Intro = Intro Int [Val Intro] deriving Show
+data Intro = Intro { iTag :: Int, iDepth :: Int, iVals :: [Val Intro] } deriving Show
 
 intro :: Val Intro -> Val Intro
 intro = intro' 0
 
 intro' :: Int -> Val Intro -> Val Intro
-intro' _ (VAny (Intro tag vals)) = VAny $ Intro tag (intro <$> reverse vals)
+intro' depth (VAny i) = VAny $ i { iVals = intro <$> reverse (iVals i), iDepth = depth }
 intro' tag fn@(VFunc name s body) =
-    case introEval (pure (VAny (Intro tag [])) : s) body of
+    case introEval (pure (VAny (Intro tag (-1) [])) : s) body of
         Left err -> fn
         Right val -> intro' (succ tag) val
 intro' _ x = x
 
 introEval = eval' introHandler
-introHandler (Intro tag vals) arg = do
+introHandler i arg = do
     arg' <- arg
-    pure $ VAny $ Intro tag (arg' : vals)
+    pure $ VAny $ i { iVals = arg' : iVals i }
 
 showIntro (VInt x) = T.pack $ show x
 showIntro (VBuiltin name _) = name
 showIntro (VFunc name _ _) = name
-showIntro (VAny (Intro tag vals)) = T.concat ["(", T.intercalate " " $ (T.pack $ show tag) : fmap showIntro vals, ")"]
+showIntro (VAny (Intro tag depth vals)) =
+    T.concat ["(", T.intercalate " " $ name : fmap showIntro vals, ")"]
+    where name = T.pack $ concat [show tag, "/", show depth]
