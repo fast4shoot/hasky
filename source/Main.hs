@@ -1,8 +1,5 @@
 module Main where
 
-import Data.Attoparsec.Text (parse, IResult(..))
-import Data.List (intercalate)
-import Data.Map.Strict (keys)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import System.IO (stdin, stderr)
